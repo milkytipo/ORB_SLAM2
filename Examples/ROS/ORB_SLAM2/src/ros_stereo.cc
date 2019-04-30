@@ -123,6 +123,7 @@ int main(int argc, char **argv)
     while(ros::ok()){
         if(SLAM.GetFramePose(Twc, q)){
         msg.header.stamp = ros::Time::now();
+        msg.header.frame_id = "slam" ;
         msg.pose.position.x = Twc.at<float>(2);//Twc.at<float>(0);
         msg.pose.position.y = -Twc.at<float>(0);//Twc.at<float>(1);
         msg.pose.position.z = -Twc.at<float>(1);//Twc.at<float>(2);
