@@ -31,6 +31,7 @@
 #include <message_filters/sync_policies/approximate_time.h>
 
 #include<opencv2/core/core.hpp>
+#include <geometry_msgs/TransformStamped.h>
 #include <geometry_msgs/PoseStamped.h>
 #include"../../../include/System.h"
 
@@ -108,6 +109,8 @@ int main(int argc, char **argv)
     }
 
     ros::NodeHandle nh;
+    ros::NodeHandle nh2;
+
 
     message_filters::Subscriber<sensor_msgs::Image> left_sub(nh, "/camera/left/image_raw", 1);
     message_filters::Subscriber<sensor_msgs::Image> right_sub(nh, "camera/right/image_raw", 1);
@@ -116,7 +119,9 @@ int main(int argc, char **argv)
     sync.registerCallback(boost::bind(&ImageGrabber::GrabStereo,&igb,_1,_2));
 
     ros::Publisher slamPos = nh.advertise<geometry_msgs::PoseStamped>("/slam/pose",10);
+    ros::Publisher slamTf = nh2.advertise<geometry_msgs::TransformStamped>("/slam/tf",10);
     geometry_msgs::PoseStamped msg;
+    geometry_msgs::TransformStamped tf1;
     cv::Mat Twc(3,1,CV_32F);
     float q[4];
     ros::Rate r(20);
@@ -127,11 +132,23 @@ int main(int argc, char **argv)
         msg.pose.position.x = Twc.at<float>(2);//Twc.at<float>(0);
         msg.pose.position.y = -Twc.at<float>(0);//Twc.at<float>(1);
         msg.pose.position.z = -Twc.at<float>(1);//Twc.at<float>(2);
-        msg.pose.orientation.x = q[2];//q[0];
+        msg.pose.orientation.x = q[2];//q[0]; because in KITTI camera z direction is different from IMU
         msg.pose.orientation.y = -q[0];//q[1];
         msg.pose.orientation.z = -q[1];//q[2];
         msg.pose.orientation.w = q[3];
         slamPos.publish(msg);
+
+        tf1.header.stamp = ros::Time::now();
+        tf1.header.frame_id = "world" ;
+        tf1.child_frame_id = "slam" ;
+        tf1.transform.translation.x = Twc.at<float>(2);//Twc.at<float>(0);
+        tf1.transform.translation.y = -Twc.at<float>(0);//Twc.at<float>(1);
+        tf1.transform.translation.z = -Twc.at<float>(1);//Twc.at<float>(2);
+        tf1.transform.rotation.x = q[2];//q[0];
+        tf1.transform.rotation.y = -q[0];//q[1];
+        tf1.transform.rotation.z = -q[1];//q[2];
+        tf1.transform.rotation.w = q[3];
+        slamTf.publish(tf1);
         }
         ros::spinOnce();
         r.sleep();
