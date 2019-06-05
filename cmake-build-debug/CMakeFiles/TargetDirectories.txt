@@ -1,0 +1,9 @@
+/home/wuzida/ORB_SLAM2/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/home/wuzida/ORB_SLAM2/cmake-build-debug/CMakeFiles/edit_cache.dir
+/home/wuzida/ORB_SLAM2/cmake-build-debug/CMakeFiles/mono_euroc.dir
+/home/wuzida/ORB_SLAM2/cmake-build-debug/CMakeFiles/rgbd_tum.dir
+/home/wuzida/ORB_SLAM2/cmake-build-debug/CMakeFiles/mono_kitti.dir
+/home/wuzida/ORB_SLAM2/cmake-build-debug/CMakeFiles/stereo_kitti.dir
+/home/wuzida/ORB_SLAM2/cmake-build-debug/CMakeFiles/stereo_euroc.dir
+/home/wuzida/ORB_SLAM2/cmake-build-debug/CMakeFiles/ORB_SLAM2.dir
+/home/wuzida/ORB_SLAM2/cmake-build-debug/CMakeFiles/mono_tum.dir

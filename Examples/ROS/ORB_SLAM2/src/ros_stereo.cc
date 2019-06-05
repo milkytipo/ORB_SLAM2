@@ -39,14 +39,26 @@ using namespace std;
 
 class ImageGrabber
 {
+private: 
+    ros::NodeHandle nh2;
+
+    ros::Publisher slamTf; 
+
 public:
-    ImageGrabber(ORB_SLAM2::System* pSLAM):mpSLAM(pSLAM){}
+    ImageGrabber(ORB_SLAM2::System* pSLAM):mpSLAM(pSLAM), Twc(3,1,CV_32F){
+    
+
+        slamTf = nh2.advertise<geometry_msgs::TransformStamped>("/slam/tf",10);
+    }
 
     void GrabStereo(const sensor_msgs::ImageConstPtr& msgLeft,const sensor_msgs::ImageConstPtr& msgRight);
 
     ORB_SLAM2::System* mpSLAM;
     bool do_rectify;
-    cv::Mat M1l,M2l,M1r,M2r;
+    cv::Mat M1l,M2l,M1r,M2r,Twc;
+    float q[4];
+    geometry_msgs::PoseStamped msg;
+    geometry_msgs::TransformStamped tf1;
 };
 
 int main(int argc, char **argv)
@@ -107,49 +119,16 @@ int main(int argc, char **argv)
         cv::initUndistortRectifyMap(K_l,D_l,R_l,P_l.rowRange(0,3).colRange(0,3),cv::Size(cols_l,rows_l),CV_32F,igb.M1l,igb.M2l);
         cv::initUndistortRectifyMap(K_r,D_r,R_r,P_r.rowRange(0,3).colRange(0,3),cv::Size(cols_r,rows_r),CV_32F,igb.M1r,igb.M2r);
     }
-
     ros::NodeHandle nh;
-    ros::NodeHandle nh2;
-
-
     message_filters::Subscriber<sensor_msgs::Image> left_sub(nh, "/camera/left/image_raw", 1);
     message_filters::Subscriber<sensor_msgs::Image> right_sub(nh, "camera/right/image_raw", 1);
     typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image> sync_pol;
     message_filters::Synchronizer<sync_pol> sync(sync_pol(10), left_sub,right_sub);
     sync.registerCallback(boost::bind(&ImageGrabber::GrabStereo,&igb,_1,_2));
 
-    ros::Publisher slamPos = nh.advertise<geometry_msgs::PoseStamped>("/slam/pose",10);
-    ros::Publisher slamTf = nh2.advertise<geometry_msgs::TransformStamped>("/slam/tf",10);
-    geometry_msgs::PoseStamped msg;
-    geometry_msgs::TransformStamped tf1;
-    cv::Mat Twc(3,1,CV_32F);
-    float q[4];
     ros::Rate r(20);
     while(ros::ok()){
-        if(SLAM.GetFramePose(Twc, q)){
-        msg.header.stamp = ros::Time::now();
-        msg.header.frame_id = "slam" ;
-        msg.pose.position.x = Twc.at<float>(2);//Twc.at<float>(0);
-        msg.pose.position.y = -Twc.at<float>(0);//Twc.at<float>(1);
-        msg.pose.position.z = -Twc.at<float>(1);//Twc.at<float>(2);
-        msg.pose.orientation.x = q[2];//q[0]; because in KITTI camera z direction is different from IMU
-        msg.pose.orientation.y = -q[0];//q[1];
-        msg.pose.orientation.z = -q[1];//q[2];
-        msg.pose.orientation.w = q[3];
-        slamPos.publish(msg);
 
-        tf1.header.stamp = ros::Time::now();
-        tf1.header.frame_id = "world" ;
-        tf1.child_frame_id = "slam" ;
-        tf1.transform.translation.x = Twc.at<float>(2);//Twc.at<float>(0);
-        tf1.transform.translation.y = -Twc.at<float>(0);//Twc.at<float>(1);
-        tf1.transform.translation.z = -Twc.at<float>(1);//Twc.at<float>(2);
-        tf1.transform.rotation.x = q[2];//q[0];
-        tf1.transform.rotation.y = -q[0];//q[1];
-        tf1.transform.rotation.z = -q[1];//q[2];
-        tf1.transform.rotation.w = q[3];
-        slamTf.publish(tf1);
-        }
         ros::spinOnce();
         r.sleep();
     }
@@ -170,6 +149,7 @@ int main(int argc, char **argv)
 
 void ImageGrabber::GrabStereo(const sensor_msgs::ImageConstPtr& msgLeft,const sensor_msgs::ImageConstPtr& msgRight)
 {
+
     // Copy the ros image message to cv::Mat.
     cv_bridge::CvImageConstPtr cv_ptrLeft;
     try
@@ -204,7 +184,20 @@ void ImageGrabber::GrabStereo(const sensor_msgs::ImageConstPtr& msgLeft,const se
     {
         mpSLAM->TrackStereo(cv_ptrLeft->image,cv_ptrRight->image,cv_ptrLeft->header.stamp.toSec());
     }
+    if(mpSLAM->GetFramePose(Twc, q)){
 
+        tf1.header.stamp = msgLeft->header.stamp;
+        tf1.header.frame_id = "world" ;
+        tf1.child_frame_id = "slam" ;
+        tf1.transform.translation.x = Twc.at<float>(2);//Twc.at<float>(0);
+        tf1.transform.translation.y = -Twc.at<float>(0);//Twc.at<float>(1);
+        tf1.transform.translation.z = -Twc.at<float>(1);//Twc.at<float>(2);
+        tf1.transform.rotation.x = q[2];//q[0];
+        tf1.transform.rotation.y = -q[0];//q[1];
+        tf1.transform.rotation.z = -q[1];//q[2];
+        tf1.transform.rotation.w = q[3];
+        slamTf.publish(tf1);
+    }
 }
 
 
