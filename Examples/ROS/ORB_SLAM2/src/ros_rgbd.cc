@@ -31,19 +31,34 @@
 #include <message_filters/sync_policies/approximate_time.h>
 
 #include<opencv2/core/core.hpp>
-
+#include<opencv2/core/core.hpp>
+#include <geometry_msgs/TransformStamped.h>
+#include <geometry_msgs/PoseStamped.h>
 #include"../../../include/System.h"
 
 using namespace std;
 
 class ImageGrabber
 {
+private: 
+    ros::NodeHandle nh2;
+
+    ros::Publisher slamTf; 
+
 public:
-    ImageGrabber(ORB_SLAM2::System* pSLAM):mpSLAM(pSLAM){}
+    ImageGrabber(ORB_SLAM2::System* pSLAM):mpSLAM(pSLAM){  
+  
+        slamTf = nh2.advertise<geometry_msgs::TransformStamped>("/slam/tf",10);
+}
 
     void GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD);
 
     ORB_SLAM2::System* mpSLAM;
+    bool do_rectify;
+    cv::Mat M1l,M2l,M1r,M2r,Twc;
+    float q[4];
+    geometry_msgs::PoseStamped msg;
+    geometry_msgs::TransformStamped tf1;
 };
 
 int main(int argc, char **argv)
@@ -66,7 +81,7 @@ int main(int argc, char **argv)
     ros::NodeHandle nh;
 
     message_filters::Subscriber<sensor_msgs::Image> rgb_sub(nh, "/camera/rgb/image_raw", 1);
-    message_filters::Subscriber<sensor_msgs::Image> depth_sub(nh, "camera/depth_registered/image_raw", 1);
+    message_filters::Subscriber<sensor_msgs::Image> depth_sub(nh, "/camera/depth/image_raw", 1);
     typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image> sync_pol;
     message_filters::Synchronizer<sync_pol> sync(sync_pol(10), rgb_sub,depth_sub);
     sync.registerCallback(boost::bind(&ImageGrabber::GrabRGBD,&igb,_1,_2));
@@ -110,6 +125,20 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
     }
 
     mpSLAM->TrackRGBD(cv_ptrRGB->image,cv_ptrD->image,cv_ptrRGB->header.stamp.toSec());
+    if(mpSLAM->GetFramePose(Twc, q)){
+
+        tf1.header.stamp = msgRGB->header.stamp;
+        tf1.header.frame_id = "world" ;
+        tf1.child_frame_id = "slam" ;
+        tf1.transform.translation.x = Twc.at<float>(2);//Twc.at<float>(0);
+        tf1.transform.translation.y = -Twc.at<float>(0);//Twc.at<float>(1);
+        tf1.transform.translation.z = -Twc.at<float>(1);//Twc.at<float>(2);
+        tf1.transform.rotation.x = q[2];//q[0];
+        tf1.transform.rotation.y = -q[0];//q[1];
+        tf1.transform.rotation.z = -q[1];//q[2];
+        tf1.transform.rotation.w = q[3];
+        slamTf.publish(tf1);
+    }
 }
 
 

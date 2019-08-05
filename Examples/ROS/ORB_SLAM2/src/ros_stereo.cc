@@ -47,7 +47,6 @@ private:
 public:
     ImageGrabber(ORB_SLAM2::System* pSLAM):mpSLAM(pSLAM), Twc(3,1,CV_32F){
     
-
         slamTf = nh2.advertise<geometry_msgs::TransformStamped>("/slam/tf",10);
     }
 
