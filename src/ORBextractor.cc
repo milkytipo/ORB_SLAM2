@@ -53,7 +53,7 @@
 *
 */
 
-
+#include <iostream>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/features2d/features2d.hpp>
@@ -1039,7 +1039,6 @@ static void computeDescriptors(const Mat& image, vector<KeyPoint>& keypoints, Ma
     for (size_t i = 0; i < keypoints.size(); i++)
         computeOrbDescriptor(keypoints[i], image, &pattern[0], descriptors.ptr((int)i));
 }
-
 void ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPoint>& _keypoints,
                       OutputArray _descriptors)
 { 
@@ -1047,6 +1046,92 @@ void ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPo
         return;
 
     Mat image = _image.getMat();
+
+    assert(image.type() == CV_8UC1 );
+
+    // Pre-compute the scale pyramid
+    ComputePyramid(image);
+
+    vector < vector<KeyPoint> > allKeypoints;
+    ComputeKeyPointsOctTree(allKeypoints);
+    //ComputeKeyPointsOld(allKeypoints);
+
+    Mat descriptors;
+
+    int nkeypoints = 0;
+    for (int level = 0; level < nlevels; ++level)
+        nkeypoints += (int)allKeypoints[level].size();
+    if( nkeypoints == 0 )
+        _descriptors.release();
+    else
+    {
+        _descriptors.create(nkeypoints, 32, CV_8U);
+        descriptors = _descriptors.getMat();
+    }
+
+    _keypoints.clear();
+    _keypoints.reserve(nkeypoints);
+
+    int offset = 0;
+    for (int level = 0; level < nlevels; ++level)
+    {
+        vector<KeyPoint>& keypoints = allKeypoints[level];
+        int nkeypointsLevel = (int)keypoints.size();
+
+        if(nkeypointsLevel==0)
+            continue;
+
+        // preprocess the resized image
+        Mat workingMat = mvImagePyramid[level].clone();
+        GaussianBlur(workingMat, workingMat, Size(7, 7), 2, 2, BORDER_REFLECT_101);
+
+        // Compute the descriptors
+        Mat desc = descriptors.rowRange(offset, offset + nkeypointsLevel);
+        computeDescriptors(workingMat, keypoints, desc, pattern);
+
+        offset += nkeypointsLevel;
+
+        // Scale keypoint coordinates
+        if (level != 0)
+        {
+            float scale = mvScaleFactor[level]; //getScale(level, firstLevel, scaleFactor);
+            for (vector<KeyPoint>::iterator keypoint = keypoints.begin(),
+                 keypointEnd = keypoints.end(); keypoint != keypointEnd; ++keypoint)
+                keypoint->pt *= scale;
+        }
+        // And add the keypoints to the output
+        _keypoints.insert(_keypoints.end(), keypoints.begin(), keypoints.end());
+    }
+}
+
+void ORBextractor::operator()( InputArray _image,InputArray _imageRoi,InputArray _imageMask, InputArray _mask, vector<KeyPoint>& _keypoints,
+                      OutputArray _descriptors)   //overload for mask fusion
+{ 
+    if(_image.empty())
+        return;
+
+    Mat image = _image.getMat();
+    Mat ROI = _imageRoi.getMat();
+    Mat Mask = _imageMask.getMat();
+
+    for(size_t y=0;y<image.rows;y++){
+
+        for(size_t x=0;x<image.cols;x++){
+       //     const unsigned char* data_rgb_ptr = &((cv_ptrRGB->image.ptr<unsigned char>( y ))[ x* cv_ptrRGB->image.channels()]); //zei ji er e xin, put this line into row.ptr and cols.ptr is prefer
+
+            unsigned char* row_ptr = image.ptr<unsigned char>(y);
+            unsigned char* data_rgb_ptr = &row_ptr[ x*image.channels() ];
+            unsigned int data_roi = ((ROI.ptr<unsigned char>( y ))[ x]); 
+            unsigned int data_mask = ((Mask.ptr<unsigned char>( y ))[ x]); 
+
+            if (data_mask == 0){
+                 for(int c=0;c<(image.channels());c++){
+                     data_rgb_ptr[c] = 0;          
+                 }
+	    }
+        }
+    }
+
     assert(image.type() == CV_8UC1 );
 
     // Pre-compute the scale pyramid

@@ -59,6 +59,9 @@ public:
     void operator()( cv::InputArray image, cv::InputArray mask,
       std::vector<cv::KeyPoint>& keypoints,
       cv::OutputArray descriptors);
+    void operator()( cv::InputArray image,cv::InputArray imageRoi,cv::InputArray imageMask, cv::InputArray mask,
+      std::vector<cv::KeyPoint>& keypoints,
+      cv::OutputArray descriptors);
 
     int inline GetLevels(){
         return nlevels;}

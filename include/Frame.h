@@ -57,8 +57,15 @@ public:
     // Constructor for Monocular cameras.
     Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth);
 
+    // Constructor for RGB-D with mask cameras
+    Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imRoi, const cv::Mat &imMask, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth);
+
     // Extract ORB on the image. 0 for left image and 1 for right image.
+
     void ExtractORB(int flag, const cv::Mat &im);
+    void ExtractORB_MASK(int flag, const cv::Mat &im,const cv::Mat &iroi,const cv::Mat &imask);
+
+
 
     // Compute Bag of Words representation.
     void ComputeBoW();
