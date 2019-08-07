@@ -206,8 +206,6 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, const c
 {
 
     cv::Mat imDepth = imD;
-    cv::Mat imMask = imM;
-    cv::Mat imRoi = imR;
     mImGray = imRGB;
 
     if(mImGray.channels()==3)
@@ -227,8 +225,15 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, const c
 
     if((fabs(mDepthMapFactor-1.0f)>1e-5) || imDepth.type()!=CV_32F)
         imDepth.convertTo(imDepth,CV_32F,mDepthMapFactor);
+    if (imM != 0){
+        cv::Mat imMask = imM;
+        cv::Mat imRoi = imR;
+        mCurrentFrame = Frame(mImGray,imDepth,imRoi,imMask,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
+    }else{
+    mCurrentFrame = Frame(mImGray,imDepth,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
 
-    mCurrentFrame = Frame(mImGray,imDepth,imRoi,imMask,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
+    }
+
 
     Track();
 

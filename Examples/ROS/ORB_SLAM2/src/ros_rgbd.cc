@@ -35,6 +35,7 @@
 #include <geometry_msgs/TransformStamped.h>
 #include <geometry_msgs/PoseStamped.h>
 #include"../../../include/System.h"
+#include <boost/thread.hpp>
 
 using namespace std;
 
@@ -44,15 +45,21 @@ private:
     ros::NodeHandle nh2;
 
     ros::Publisher slamTf; 
+    cv_bridge::CvImageConstPtr mRoi;
+    cv_bridge::CvImageConstPtr mMask;
+  //  cv_bridge::CvImage mRoi;
+  //  cv_bridge::CvImage mMask;
 
 public:
     ImageGrabber(ORB_SLAM2::System* pSLAM):mpSLAM(pSLAM){  
   
         slamTf = nh2.advertise<geometry_msgs::TransformStamped>("/slam/tf",10);
+
 }
 
-    //void GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD); //original 
-    void GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD,const sensor_msgs::ImageConstPtr& msgRoi,const sensor_msgs::ImageConstPtr& msgMask); 
+    void GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD); //original 
+//    void GrabRGBD2(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD,const sensor_msgs::ImageConstPtr& msgRoi,const sensor_msgs::ImageConstPtr& msgMask); 
+    void GrabRGBD2(const sensor_msgs::ImageConstPtr& msgRoi,const sensor_msgs::ImageConstPtr& msgMask); 
     ORB_SLAM2::System* mpSLAM;
     bool do_rectify;
     cv::Mat M1l,M2l,M1r,M2r,Twc;
@@ -84,12 +91,23 @@ int main(int argc, char **argv)
     message_filters::Subscriber<sensor_msgs::Image> depth_sub(nh, "/camera/depth/image_raw", 1);
     message_filters::Subscriber<sensor_msgs::Image> roi_sub(nh, "/roi_image", 1);
     message_filters::Subscriber<sensor_msgs::Image> mask_sub(nh, "/mask_image", 1);
+
+
     typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image,sensor_msgs::Image> sync_pol;
     message_filters::Synchronizer<sync_pol> sync(sync_pol(10), rgb_sub,depth_sub); // no synchronize the roi and image since the frequency is too low 
-    sync.registerCallback(boost::bind(&ImageGrabber::GrabRGBD,&igb,_1,_2,_3,_4)); 
+    sync.registerCallback(boost::bind(&ImageGrabber::GrabRGBD,&igb,_1,_2)); 
 
-    ros::spin();
+    typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image,sensor_msgs::Image> sync_pol2;
+    message_filters::Synchronizer<sync_pol2> sync2(sync_pol2(10),roi_sub,mask_sub);
+    sync2.registerCallback(boost::bind(&ImageGrabber::GrabRGBD2,&igb,_1,_2)); 
 
+ //   ros::AsyncSpinner spinner(2);
+ //   spinner.start();
+ //   ros::waitForShutdown();
+
+    ros::MultiThreadedSpinner spinner(2);
+    spinner.spin();
+ //   ros::spin();
     // Stop all threads
     SLAM.Shutdown();
 
@@ -101,8 +119,7 @@ int main(int argc, char **argv)
     return 0;
 }
 
-//mask
-void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD,const sensor_msgs::ImageConstPtr& msgRoi = NULL,const sensor_msgs::ImageConstPtr& msgMask = NULL)
+void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD)
 {
     // Copy the ros image message to cv::Mat.
     cv_bridge::CvImageConstPtr cv_ptrRGB;
@@ -126,7 +143,81 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
         ROS_ERROR("cv_bridge exception: %s", e.what());
         return;
     }
-    
+    if(mRoi == NULL){
+       mpSLAM->TrackRGBD(cv_ptrRGB->image,cv_ptrD->image,cv_ptrRGB->header.stamp.toSec()); //original
+    }else{
+        mpSLAM->TrackRGBD(cv_ptrRGB->image,cv_ptrD->image,mRoi->image,mMask->image,cv_ptrRGB->header.stamp.toSec());
+    }
+    if(mpSLAM->GetFramePose(Twc, q)){
+
+        tf1.header.stamp = msgRGB->header.stamp;
+        tf1.header.frame_id = "world" ;
+        tf1.child_frame_id = "slam" ;
+        tf1.transform.translation.x = Twc.at<float>(2);//Twc.at<float>(0);
+        tf1.transform.translation.y = -Twc.at<float>(0);//Twc.at<float>(1);
+        tf1.transform.translation.z = -Twc.at<float>(1);//Twc.at<float>(2);
+        tf1.transform.rotation.x = q[2];//q[0];
+        tf1.transform.rotation.y = -q[0];//q[1];
+        tf1.transform.rotation.z = -q[1];//q[2];
+        tf1.transform.rotation.w = q[3];
+        slamTf.publish(tf1);
+    }
+}
+
+//mask
+//void ImageGrabber::GrabRGBD2(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD,const sensor_msgs::ImageConstPtr& msgRoi = NULL,const sensor_msgs::ImageConstPtr& msgMask = NULL)
+void ImageGrabber::GrabRGBD2(const sensor_msgs::ImageConstPtr& msgRoi,const sensor_msgs::ImageConstPtr& msgMask)
+{
+/*
+    // Copy the ros image message to cv::Mat.
+    cv_bridge::CvImageConstPtr cv_ptrRGB;
+    try
+    {
+        cv_ptrRGB = cv_bridge::toCvShare(msgRGB);
+    }
+    catch (cv_bridge::Exception& e)
+    {
+        ROS_ERROR("cv_bridge exception: %s", e.what());
+        return;
+    }
+
+    cv_bridge::CvImageConstPtr cv_ptrD;
+    try
+    {
+        cv_ptrD = cv_bridge::toCvShare(msgD);
+    }
+    catch (cv_bridge::Exception& e)
+    {
+        ROS_ERROR("cv_bridge exception: %s", e.what());
+        return;
+    }
+*/
+    cv_bridge::CvImageConstPtr cv_ptrRoi;
+    try
+    {
+        cv_ptrRoi = cv_bridge::toCvShare(msgRoi);
+    }
+    catch (cv_bridge::Exception& e)
+    {
+        ROS_ERROR("cv_bridge exception: %s", e.what());
+        return;
+    }
+
+    cv_bridge::CvImageConstPtr cv_ptrMask;
+    try
+    {
+        cv_ptrMask = cv_bridge::toCvShare(msgMask);
+    }
+    catch (cv_bridge::Exception& e)
+    {
+        ROS_ERROR("cv_bridge exception: %s", e.what());
+        return;
+    }
+
+    //     const unsigned char* data_rgb_ptr = &((cv_ptrRGB->image.ptr<unsigned char>( y ))[ x* cv_ptrRGB->image.channels()]); //zei ji er e xin, put this line into row.ptr and cols.ptr is prefer
+    mRoi = cv_ptrRoi; 
+    mMask = cv_ptrMask;
+/*
     if (msgRoi != NULL) {
 
 	    cv_bridge::CvImageConstPtr cv_ptrRoi;
@@ -169,6 +260,7 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
         tf1.transform.rotation.w = q[3];
         slamTf.publish(tf1);
     }
+*/
 }
 
 
