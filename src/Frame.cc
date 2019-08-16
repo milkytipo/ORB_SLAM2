@@ -22,7 +22,9 @@
 #include "Converter.h"
 #include "ORBmatcher.h"
 #include <thread>
-
+#include <math.h>
+#include "opencv2/opencv.hpp"
+using namespace cv;
 namespace ORB_SLAM2
 {
 
@@ -187,15 +189,16 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imRoi
     mvInvLevelSigma2 = mpORBextractorLeft->GetInverseScaleSigmaSquares();
 
     // ORB extraction
-    ExtractORB_MASK(0,imGray,imRoi,imMask);
-
+    cv::Mat region;
+    region = EnlargeMaskRegion(imGray,imDepth,imRoi, imMask,region);
+  // ExtractORB_MASK(0,imGray,imRoi,imMask);
+    ExtractORB_MASK(0,imGray,imRoi,region);
     N = mvKeys.size();
 
     if(mvKeys.empty())
         return;
 
-    UndistortKeyPoints();
-
+    UndistortKeyPoints();   
     ComputeStereoFromRGBD(imDepth);
 
     mvpMapPoints = vector<MapPoint*>(N,static_cast<MapPoint*>(NULL));
@@ -311,6 +314,117 @@ void Frame::ExtractORB_MASK(int flag, const cv::Mat &im,const cv::Mat &iroi,cons
         (*mpORBextractorLeft)(im,iroi,imask,cv::Mat(),mvKeys,mDescriptors);
     else
         (*mpORBextractorLeft)(im,iroi,imask,cv::Mat(),mvKeys,mDescriptors);
+}
+
+cv::Mat Frame::EnlargeMaskRegion(cv::InputArray _imGray,cv::InputArray _idepth,cv::InputArray _iRoi,cv::InputArray _imask, cv::Mat &region) const
+{
+  //  cv::Mat imask = _imask.getMat(); 
+    cv::Mat iRoi = _iRoi.getMat(); 
+    cv::Mat bgdModel,fgdModel; 
+    cv::Mat result;
+/*
+    int rect_x,rect_y,rect_x1,rect_y1,rect_x2,rect_y2,rect_x3,rect_y3;
+    for(size_t y=0;y<iRoi.rows;y++){
+        for(size_t x=0;x<iRoi.cols;x++){
+           if ( (iRoi.ptr<unsigned char>( y ))[ x] != 0){
+                rect_x=x;
+                rect_y=y;
+                goto Here1;
+           }
+           
+        }
+    }
+    Here1:for(size_t y=iRoi.rows;y==0;y--){
+        for(size_t x=iRoi.cols;x==0;x--){
+           if ( (iRoi.ptr<unsigned char>( y ))[ x] != 0){
+                rect_x3=x;
+                rect_y3=y;
+                goto Here2;
+           }
+           
+        }
+    }
+    Here2:for(size_t y=iRoi.rows;y==0;y--){
+        for(size_t x=0;x<iRoi.cols;x++){
+           if ( (iRoi.ptr<unsigned char>( y ))[ x] != 0){
+                rect_x2=x;
+                rect_y2=y;
+                goto Here3;
+           }
+           
+        }
+    }
+    Here3:for(size_t y=0;y<iRoi.rows;y++){
+        for(size_t x=iRoi.cols;x==0;x--){
+           if ( (iRoi.ptr<unsigned char>( y ))[ x] != 0){
+                rect_x1=x;
+                rect_y1=y;
+                goto Here4;
+           }
+           
+        }
+    }
+    Here4: std::cout << "size is ="<<(rect_x1-rect_x)<<(rect_x1-rect_x)<<endl;
+    if ((rect_x1-rect_x)!=0 &&(rect_x1-rect_x)!=0){
+        cv::Rect rect(rect_y,rect_x,(rect_x1-rect_x),(rect_x1-rect_x));
+        grabCut(_imGray,result,rect,bgdModel,fgdModel,1,GC_INIT_WITH_RECT);
+        compare(result,GC_PR_FGD,result,CMP_EQ);
+        region = result;
+        return region;
+    }else{
+    return imask.clone();
+}
+/*/
+    float d_average = 0;
+    int count_pixel=0;
+    cv::Mat depth = _idepth.getMat();  //depth
+    cv::Mat imask = _imask.getMat(); 
+    for(size_t y=0;y<depth.rows;y++){
+        for(size_t x=0;x<depth.cols;x++){
+     //       const unsigned char* row_ptr = depth.ptr<const unsigned char>(y);
+     //       const unsigned char* data_rgb_ptr = &row_ptr[ x*imdepth.channels() ];
+            unsigned int data_mask = ((imask.ptr<unsigned char>( y ))[ x]); 
+            if (data_mask == 255 && depth.ptr<float>(y)[x]!=0 ){
+                     count_pixel++;  
+                     d_average =( d_average*(count_pixel-1)+ depth.ptr<float>(y)[x] )/count_pixel;      
+                 } 
+        }
+    }
+
+///*
+    for(size_t y=5;y<(depth.rows-5);y+=1){
+        for(size_t x=5;x<(depth.cols-5);x+=1){
+        // check a 3*3 block around the pixel, to decide whether the pixel is at the mask margin.
+            if ((imask.ptr< unsigned char>( y-1 ))[ x-1] == 255 || (imask.ptr< unsigned char>( y ))[ x-1] == 255|| (imask.ptr< unsigned char>( y+1 ))[ x-1] == 255|| (imask.ptr< unsigned char>( y-1 ))[ x] == 255|| (imask.ptr< unsigned char>( y ))[ x] == 255|| (imask.ptr< unsigned char>( y+1 ))[ x] == 255|| (imask.ptr< unsigned char>( y-1 ))[ x+1] == 255|| (imask.ptr< unsigned char>( y ))[x+1] == 255|| (imask.ptr< unsigned char>( y+1 ))[x+1] == 255){
+
+                int count_pixel2 = 0; 
+                float d_block =0;
+                for(size_t y2=0;y2<3;y2++){
+                    for(size_t x2=0;x2<3;x2++){
+                        count_pixel2++;  
+                        d_block =( d_block*(count_pixel2-1)+ depth.ptr<float>(y-1+y2)[x-1+x2] )/count_pixel2;
+                    }
+                }
+      //          std::cout << "ros and clos:" << depth.rows << " " << depth.cols << "pixle number" << count_pixel2<<"pixel position"<< x << " " << y <<endl;
+                if ( fabs(d_block- d_average) < 0.1 && (depth.ptr<float>( y ))[ x] != 0 && imask.ptr< unsigned char>( y )[ x] ==0){  // zheyibu panduan budui !!!!
+                    for(size_t y2=0;y2<3;y2++){
+                        for(size_t x2=0;x2<3;x2++){
+	                    imask.ptr< unsigned char>(y-1+y2)[x-1+x2] =255; 
+                        }
+                    }
+                }
+   //             if ( d_block- d_average > 0.05 && (depth.ptr<float>( y ))[ x] != 0 ){  // zheyibu panduan budui !!!!
+//	           imask.ptr< unsigned char>( y )[ x] =0; 
+    //            }
+
+
+            }
+        }
+    }
+
+    region = imask.clone();
+    return region;
+//*/
 }
 
 void Frame::SetPose(cv::Mat Tcw)

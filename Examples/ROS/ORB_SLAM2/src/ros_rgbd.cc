@@ -36,7 +36,7 @@
 #include <geometry_msgs/PoseStamped.h>
 #include"../../../include/System.h"
 #include <boost/thread.hpp>
-
+#include <thread>
 using namespace std;
 
 class ImageGrabber
@@ -47,6 +47,7 @@ private:
     ros::Publisher slamTf; 
     cv_bridge::CvImageConstPtr mRoi;
     cv_bridge::CvImageConstPtr mMask;
+    float depth_object;
   //  cv_bridge::CvImage mRoi;
   //  cv_bridge::CvImage mMask;
 
@@ -131,9 +132,8 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
     {
         ROS_ERROR("cv_bridge exception: %s", e.what());
         return;
-    }
-
-    cv_bridge::CvImageConstPtr cv_ptrD;
+    }   
+     cv_bridge::CvImageConstPtr cv_ptrD;
     try
     {
         cv_ptrD = cv_bridge::toCvShare(msgD);
@@ -143,6 +143,10 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
         ROS_ERROR("cv_bridge exception: %s", e.what());
         return;
     }
+    cv::Mat imDepth = cv_ptrD->image;
+
+    imDepth.convertTo(imDepth,CV_32F,0.001);
+    depth_object = imDepth.ptr<float>(100)[100];
     if(mRoi == NULL){
        mpSLAM->TrackRGBD(cv_ptrRGB->image,cv_ptrD->image,cv_ptrRGB->header.stamp.toSec()); //original
     }else{
@@ -217,6 +221,7 @@ void ImageGrabber::GrabRGBD2(const sensor_msgs::ImageConstPtr& msgRoi,const sens
     //     const unsigned char* data_rgb_ptr = &((cv_ptrRGB->image.ptr<unsigned char>( y ))[ x* cv_ptrRGB->image.channels()]); //zei ji er e xin, put this line into row.ptr and cols.ptr is prefer
     mRoi = cv_ptrRoi; 
     mMask = cv_ptrMask;
+    
 /*
     if (msgRoi != NULL) {
 

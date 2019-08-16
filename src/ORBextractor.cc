@@ -1115,15 +1115,12 @@ void ORBextractor::operator()( InputArray _image,InputArray _imageRoi,InputArray
     Mat Mask = _imageMask.getMat();
 
     for(size_t y=0;y<image.rows;y++){
-
         for(size_t x=0;x<image.cols;x++){
        //     const unsigned char* data_rgb_ptr = &((cv_ptrRGB->image.ptr<unsigned char>( y ))[ x* cv_ptrRGB->image.channels()]); //zei ji er e xin, put this line into row.ptr and cols.ptr is prefer
-
             unsigned char* row_ptr = image.ptr<unsigned char>(y);
             unsigned char* data_rgb_ptr = &row_ptr[ x*image.channels() ];
             unsigned int data_roi = ((ROI.ptr<unsigned char>( y ))[ x]); 
             unsigned int data_mask = ((Mask.ptr<unsigned char>( y ))[ x]); 
-
             if (data_mask == 0){
                  for(int c=0;c<(image.channels());c++){
                      data_rgb_ptr[c] = 0;          

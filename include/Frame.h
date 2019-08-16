@@ -29,7 +29,7 @@
 #include "ORBVocabulary.h"
 #include "KeyFrame.h"
 #include "ORBextractor.h"
-
+#include <opencv/cv.h>
 #include <opencv2/opencv.hpp>
 
 namespace ORB_SLAM2
@@ -61,10 +61,12 @@ public:
     Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imRoi, const cv::Mat &imMask, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth);
 
     // Extract ORB on the image. 0 for left image and 1 for right image.
-
     void ExtractORB(int flag, const cv::Mat &im);
     void ExtractORB_MASK(int flag, const cv::Mat &im,const cv::Mat &iroi,const cv::Mat &imask);
 
+    //Enlarge the mask region using the depth discoutiniuty.
+    cv::Mat EnlargeMaskRegion(cv::InputArray _im, cv::InputArray  _imask, cv::Mat &region) const;
+    cv::Mat EnlargeMaskRegion(cv::InputArray _imGray,cv::InputArray _idepth,cv::InputArray _iRoi,cv::InputArray _imask, cv::Mat &region)const;
 
 
     // Compute Bag of Words representation.

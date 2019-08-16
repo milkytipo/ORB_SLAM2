@@ -208,7 +208,7 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, const c
     cv::Mat imDepth = imD;
     mImGray = imRGB;
 
-    if(mImGray.channels()==3)
+ /*   if(mImGray.channels()==3)
     {
         if(mbRGB)
             cvtColor(mImGray,mImGray,CV_RGB2GRAY);
@@ -222,10 +222,10 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, const c
         else
             cvtColor(mImGray,mImGray,CV_BGRA2GRAY);
     }
-
+*/
     if((fabs(mDepthMapFactor-1.0f)>1e-5) || imDepth.type()!=CV_32F)
         imDepth.convertTo(imDepth,CV_32F,mDepthMapFactor);
-    if (imM != 0){
+    if (!imM.empty()){
         cv::Mat imMask = imM;
         cv::Mat imRoi = imR;
         mCurrentFrame = Frame(mImGray,imDepth,imRoi,imMask,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
@@ -263,6 +263,7 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, const d
 
     if((fabs(mDepthMapFactor-1.0f)>1e-5) || imDepth.type()!=CV_32F)
         imDepth.convertTo(imDepth,CV_32F,mDepthMapFactor);
+
 
     mCurrentFrame = Frame(mImGray,imDepth,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
 
