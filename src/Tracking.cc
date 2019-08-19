@@ -202,7 +202,7 @@ cv::Mat Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat &imRe
 
     return mCurrentFrame.mTcw.clone();
 }
-cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, const cv::Mat &imR, const cv::Mat &imM, const double &timestamp)  //overload to deal with mask
+cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, const cv::Mat &imR, cv::Mat &imM, const double &timestamp)  //overload to deal with mask
 {
 
     cv::Mat imDepth = imD;
