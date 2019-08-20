@@ -45,11 +45,14 @@ private:
     ros::NodeHandle nh2;
 
     ros::Publisher slamTf; 
-    cv_bridge::CvImageConstPtr mRoi;
-    cv_bridge::CvImageConstPtr mMask;
+  //  cv_bridge::CvImageConstPtr mRoi;
+  //  cv_bridge::CvImageConstPtr mMask;
+ //   cv_bridge::CvImage mRoi;
+ //   cv_bridge::CvImage mMask;
     float depth_object;
-  //  cv_bridge::CvImage mRoi;
-  //  cv_bridge::CvImage mMask;
+
+    cv::Mat mRoi;
+    cv::Mat mMask;
 
 public:
     ImageGrabber(ORB_SLAM2::System* pSLAM):mpSLAM(pSLAM){  
@@ -143,14 +146,14 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
         ROS_ERROR("cv_bridge exception: %s", e.what());
         return;
     }
-    cv::Mat imDepth = cv_ptrD->image;
+  //  cv::Mat imDepth = cv_ptrD->image;
 
-    imDepth.convertTo(imDepth,CV_32F,0.001);
-    depth_object = imDepth.ptr<float>(100)[100];
-    if(mRoi == NULL){
+  //  imDepth.convertTo(imDepth,CV_32F,0.001);
+  //  depth_object = imDepth.ptr<float>(100)[100];
+    if(mRoi.empty()){
        mpSLAM->TrackRGBD(cv_ptrRGB->image,cv_ptrD->image,cv_ptrRGB->header.stamp.toSec()); //original
     }else{
-        mpSLAM->TrackRGBD(cv_ptrRGB->image,cv_ptrD->image,mRoi->image,mMask->image,cv_ptrRGB->header.stamp.toSec());
+       mpSLAM->TrackRGBD(cv_ptrRGB->image,cv_ptrD->image,mRoi,mMask,cv_ptrRGB->header.stamp.toSec());
     }
     if(mpSLAM->GetFramePose(Twc, q)){
 
@@ -219,8 +222,8 @@ void ImageGrabber::GrabRGBD2(const sensor_msgs::ImageConstPtr& msgRoi,const sens
     }
 
     //     const unsigned char* data_rgb_ptr = &((cv_ptrRGB->image.ptr<unsigned char>( y ))[ x* cv_ptrRGB->image.channels()]); //zei ji er e xin, put this line into row.ptr and cols.ptr is prefer
-    mRoi = cv_ptrRoi; 
-    mMask = cv_ptrMask;
+    mRoi = cv_ptrRoi->image; 
+    mMask = cv_ptrMask->image;
     
 /*
     if (msgRoi != NULL) {

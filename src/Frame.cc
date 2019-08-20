@@ -307,7 +307,7 @@ void Frame::ExtractORB(int flag, const cv::Mat &im)
 
 void Frame::ExtractORB_MASK(int flag, const cv::Mat &im,const cv::Mat &iroi, cv::Mat &imask,const cv::Mat &iDepth) //overload with roi and mask
 {   
-    EnlargeMaskRegion(im,iDepth,iroi,imask);
+   // EnlargeMaskRegion(im,iDepth,iroi,imask);
     if(flag==0)
         (*mpORBextractorLeft)(im,iroi,imask,cv::Mat(),mvKeys,mDescriptors);
     else
@@ -377,19 +377,20 @@ void Frame::EnlargeMaskRegion(cv::InputArray _imGray,cv::InputArray _idepth,cv::
     int count_pixel=0;
     cv::Mat depth = _idepth.getMat();  //depth
     for(size_t y=0;y<depth.rows;y++){
+        unsigned char* d_row_ptr = depth.ptr< unsigned char>(y);
+        unsigned char* mask_row_ptr = imask.ptr< unsigned char>(y);
         for(size_t x=0;x<depth.cols;x++){
      //       const unsigned char* row_ptr = depth.ptr<const unsigned char>(y);
      //       const unsigned char* data_rgb_ptr = &row_ptr[ x*imdepth.channels() ];
-            unsigned int data_mask = ((imask.ptr<unsigned char>( y ))[ x]); 
-            if (data_mask == 255 && depth.ptr<float>(y)[x]!=0 ){
+     //       unsigned int data_mask = ((imask.ptr<unsigned char>( y ))[ x]); 
+            if (*mask_row_ptr++ == 255 && *d_row_ptr++!=0 ){
                      count_pixel++;  
-                     d_average =( d_average*(count_pixel-1)+ depth.ptr<unsigned char>(y)[x] )/count_pixel;
+                 //    d_average =( d_average*(count_pixel-1)+ depth.ptr<unsigned char>(y)[x] )/count_pixel;
+                     d_average =( d_average*(count_pixel-1)+  *d_row_ptr++ )/count_pixel;
                      std::cout<<"char="<<depth.ptr<unsigned char>(y)[x] <<"float"<<    depth.ptr<float>(y)[x]    <<endl; 
                  } 
         }
     }
-
-///*
     for(size_t y=5;y<(depth.rows-5);y+=3){
         for(size_t x=5;x<(depth.cols-5);x+=3){
         // check a 3*3 block around the pixel, to decide whether the pixel is at the mask margin.
@@ -403,7 +404,6 @@ void Frame::EnlargeMaskRegion(cv::InputArray _imGray,cv::InputArray _idepth,cv::
                         d_block =( d_block*(count_pixel2-1)+ depth.ptr<float>(y-1+y2)[x-1+x2] )/count_pixel2;
                     }
                 }
-      //          std::cout << "ros and clos:" << depth.rows << " " << depth.cols << "pixle number" << count_pixel2<<"pixel position"<< x << " " << y <<endl;
                 if ( fabs(d_block- d_average) < 0.1 && (depth.ptr<unsigned char>( y ))[ x] != 0 && imask.ptr< unsigned char>( y )[ x] ==0){  
                     for(size_t y2=0;y2<3;y2++){
                         for(size_t x2=0;x2<3;x2++){
@@ -420,7 +420,6 @@ void Frame::EnlargeMaskRegion(cv::InputArray _imGray,cv::InputArray _idepth,cv::
         }
     }
 
-//*/
 }
 
 void Frame::SetPose(cv::Mat Tcw)
