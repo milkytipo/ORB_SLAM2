@@ -163,7 +163,7 @@ cv::Mat System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const
     mTrackedKeyPointsUn = mpTracker->mCurrentFrame.mvKeysUn;
     return Tcw;
 }
-cv::Mat System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const cv::Mat &roimap, cv::Mat &maskmap, const double &timestamp)  //overload to deal with mask
+cv::Mat System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const cv::Mat &roimap,const cv::Mat &maskmap, const double &timestamp)  //overload to deal with mask
 {
     if(mSensor!=RGBD)
     {

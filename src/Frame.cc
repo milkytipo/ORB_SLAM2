@@ -172,7 +172,7 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeSt
     AssignFeaturesToGrid();
 }
 //RGB-D WITH MASK
-Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imRoi, cv::Mat &imMask,const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth)
+Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imRoi, const cv::Mat &imMask,const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth)
     :mpORBvocabulary(voc),mpORBextractorLeft(extractor),mpORBextractorRight(static_cast<ORBextractor*>(NULL)),
      mTimeStamp(timeStamp), mK(K.clone()),mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth)
 {
@@ -305,21 +305,21 @@ void Frame::ExtractORB(int flag, const cv::Mat &im)
         (*mpORBextractorRight)(im,cv::Mat(),mvKeysRight,mDescriptorsRight);
 }
 
-void Frame::ExtractORB_MASK(int flag, const cv::Mat &im,const cv::Mat &iroi, cv::Mat &imask,const cv::Mat &iDepth) //overload with roi and mask
-{   
-   // EnlargeMaskRegion(im,iDepth,iroi,imask);
+void Frame::ExtractORB_MASK(int flag, const cv::Mat &im,const cv::Mat &iroi,const cv::Mat &imask,const cv::Mat &iDepth) //overload with roi and mask
+{   cv::Mat temp = imask;
+    EnlargeMaskRegion(im,iDepth,iroi,temp);
     if(flag==0)
-        (*mpORBextractorLeft)(im,iroi,imask,cv::Mat(),mvKeys,mDescriptors);
+        (*mpORBextractorLeft)(im,iroi,temp,cv::Mat(),mvKeys,mDescriptors);
     else
-        (*mpORBextractorLeft)(im,iroi,imask,cv::Mat(),mvKeys,mDescriptors);
+        (*mpORBextractorLeft)(im,iroi,temp,cv::Mat(),mvKeys,mDescriptors);
 }
 
 void Frame::EnlargeMaskRegion(cv::InputArray _imGray,cv::InputArray _idepth,cv::InputArray _iRoi,cv::Mat &imask) 
 {
   //  cv::Mat imask = _imask.getMat(); 
-    cv::Mat iRoi = _iRoi.getMat(); 
-    cv::Mat bgdModel,fgdModel; 
-    cv::Mat result;
+ //   cv::Mat iRoi = _iRoi.getMat(); 
+ //   cv::Mat bgdModel,fgdModel; 
+  //  cv::Mat result;
 /*
     int rect_x,rect_y,rect_x1,rect_y1,rect_x2,rect_y2,rect_x3,rect_y3;
     for(size_t y=0;y<iRoi.rows;y++){
@@ -377,17 +377,16 @@ void Frame::EnlargeMaskRegion(cv::InputArray _imGray,cv::InputArray _idepth,cv::
     int count_pixel=0;
     cv::Mat depth = _idepth.getMat();  //depth
     for(size_t y=0;y<depth.rows;y++){
-        unsigned char* d_row_ptr = depth.ptr< unsigned char>(y);
-        unsigned char* mask_row_ptr = imask.ptr< unsigned char>(y);
+        const float* d_row_ptr = depth.ptr<float>(y);
+        const unsigned char* mask_row_ptr = imask.ptr< unsigned char>(y);
         for(size_t x=0;x<depth.cols;x++){
      //       const unsigned char* row_ptr = depth.ptr<const unsigned char>(y);
-     //       const unsigned char* data_rgb_ptr = &row_ptr[ x*imdepth.channels() ];
-     //       unsigned int data_mask = ((imask.ptr<unsigned char>( y ))[ x]); 
+      //      const unsigned char* data_rgb_ptr = &row_ptr[ x*imdepth.channels() ];  
+     //       unsigned int data_mask = ((imask.ptr<float>( y ))[ x]); 
             if (*mask_row_ptr++ == 255 && *d_row_ptr++!=0 ){
                      count_pixel++;  
-                 //    d_average =( d_average*(count_pixel-1)+ depth.ptr<unsigned char>(y)[x] )/count_pixel;
-                     d_average =( d_average*(count_pixel-1)+  *d_row_ptr++ )/count_pixel;
-                     std::cout<<"char="<<depth.ptr<unsigned char>(y)[x] <<"float"<<    depth.ptr<float>(y)[x]    <<endl; 
+                 //    d_average =( d_average*(count_pixel-1)+ depth.ptr<float>(y)[x] )/count_pixel;
+                     d_average =( d_average*(count_pixel-1)+  (float)*d_row_ptr++ )/count_pixel;
                  } 
         }
     }
@@ -404,15 +403,18 @@ void Frame::EnlargeMaskRegion(cv::InputArray _imGray,cv::InputArray _idepth,cv::
                         d_block =( d_block*(count_pixel2-1)+ depth.ptr<float>(y-1+y2)[x-1+x2] )/count_pixel2;
                     }
                 }
+
                 if ( fabs(d_block- d_average) < 0.1 && (depth.ptr<unsigned char>( y ))[ x] != 0 && imask.ptr< unsigned char>( y )[ x] ==0){  
                     for(size_t y2=0;y2<3;y2++){
                         for(size_t x2=0;x2<3;x2++){
-	                    imask.ptr< unsigned char>(y-1+y2)[x-1+x2] =255; 
+	                    imask.ptr< unsigned int>(y-1+y2)[x-1+x2] =255;   //255 correspond to the mask area 
+                            std::cout<<"enlarge the mask areae" <<endl;
                         }
                     }
                 }
                 if ( d_block- d_average > 1.0 && (depth.ptr<unsigned char>( y ))[ x] != 0 ){  
 	           imask.ptr< unsigned char>( y )[ x] =0; 
+std::cout<<"shrink the mask areae" <<endl;
                 }
 
 

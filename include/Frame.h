@@ -58,11 +58,11 @@ public:
     Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth);
 
     // Constructor for RGB-D with mask cameras
-    Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imRoi, cv::Mat &imMask, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth);
+    Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imRoi,const cv::Mat &imMask, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth);
 
     // Extract ORB on the image. 0 for left image and 1 for right image.
     void ExtractORB(int flag, const cv::Mat &im);
-    void ExtractORB_MASK(int flag, const cv::Mat &im,const cv::Mat &iroi, cv::Mat &imask,const cv::Mat &iDepth);
+    void ExtractORB_MASK(int flag, const cv::Mat &im,const cv::Mat &iroi,const cv::Mat &imask,const cv::Mat &iDepth);
 
     //Enlarge the mask region using the depth discoutiniuty.
     void EnlargeMaskRegion(cv::InputArray _imGray,cv::InputArray _idepth,cv::InputArray _iRoi,cv::Mat &imask);
