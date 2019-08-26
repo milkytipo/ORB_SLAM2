@@ -390,34 +390,37 @@ void Frame::EnlargeMaskRegion(cv::InputArray _imGray,cv::InputArray _idepth,cv::
                  } 
         }
     }
-    for(size_t y=5;y<(depth.rows-5);y+=3){
-        for(size_t x=5;x<(depth.cols-5);x+=3){
+    int area = 10;
+    for(size_t y=area;y<(depth.rows-area-3);y+=3){
+        for(size_t x=area;x<(depth.cols-area-3);x+=3){
         // check a 3*3 block around the pixel, to decide whether the pixel is at the mask margin.
             if ((imask.ptr< unsigned char>( y-1 ))[ x-1] == 255 || (imask.ptr< unsigned char>( y ))[ x-1] == 255|| (imask.ptr< unsigned char>( y+1 ))[ x-1] == 255|| (imask.ptr< unsigned char>( y-1 ))[ x] == 255|| (imask.ptr< unsigned char>( y ))[ x] == 255|| (imask.ptr< unsigned char>( y+1 ))[ x] == 255|| (imask.ptr< unsigned char>( y-1 ))[ x+1] == 255|| (imask.ptr< unsigned char>( y ))[x+1] == 255|| (imask.ptr< unsigned char>( y+1 ))[x+1] == 255){
 
                 int count_pixel2 = 0; 
                 float d_block =0;
-                for(size_t y2=0;y2<3;y2++){
-                    for(size_t x2=0;x2<3;x2++){
+                for(size_t y2=0;y2<area;y2++){
+                    for(size_t x2=0;x2<area;x2++){
                         count_pixel2++;  
                         d_block =( d_block*(count_pixel2-1)+ depth.ptr<float>(y-1+y2)[x-1+x2] )/count_pixel2;
                     }
                 }
-
-                if ( fabs(d_block- d_average) < 0.1 && (depth.ptr<unsigned char>( y ))[ x] != 0 && imask.ptr< unsigned char>( y )[ x] ==0){  
-                    for(size_t y2=0;y2<3;y2++){
-                        for(size_t x2=0;x2<3;x2++){
-	                    imask.ptr< unsigned int>(y-1+y2)[x-1+x2] =255;   //255 correspond to the mask area 
-                            std::cout<<"enlarge the mask areae" <<endl;
+                if ( fabs(d_block- d_average) < 0.1 && (depth.ptr<float>( y ))[ x] != 0 && imask.ptr< unsigned char>( y )[ x] ==0){  
+                    for(size_t y2=0;y2<area;y2++){
+                        for(size_t x2=0;x2<area;x2++){
+	                    imask.ptr< unsigned char>(y-1+y2)[x-1+x2] =255;   //255 correspond to the mask area 
                         }
                     }
                 }
-                if ( d_block- d_average > 1.0 && (depth.ptr<unsigned char>( y ))[ x] != 0 ){  
-	           imask.ptr< unsigned char>( y )[ x] =0; 
-std::cout<<"shrink the mask areae" <<endl;
+
+  //be cautious to shrink the section, since if no mask was detected that would result disastrous result.
+/*              if ( fabs(d_block- d_average) > 0.5 && (depth.ptr<float>( y ))[ x] != 0 && imask.ptr< unsigned char>( y )[ x] ==255){  
+                    for(size_t y2=0;y2<area;y2++){
+                        for(size_t x2=0;x2<area;x2++){
+	                    imask.ptr< unsigned char>(y-1+y2)[x-1+x2] =0;  
+                        }
+                    }
                 }
-
-
+  */  
             }
         }
     }
