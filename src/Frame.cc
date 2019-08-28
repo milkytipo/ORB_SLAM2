@@ -172,6 +172,59 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeSt
     AssignFeaturesToGrid();
 }
 //RGB-D WITH MASK
+Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imRoi, const cv::Mat &imMask,const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth, bool &isPre)
+    :mpORBvocabulary(voc),mpORBextractorLeft(extractor),mpORBextractorRight(static_cast<ORBextractor*>(NULL)),
+     mTimeStamp(timeStamp), mK(K.clone()),mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth)
+{
+    // Frame ID
+    mnId=nNextId++;
+
+    // Scale Level Info
+    mnScaleLevels = mpORBextractorLeft->GetLevels();
+    mfScaleFactor = mpORBextractorLeft->GetScaleFactor();    
+    mfLogScaleFactor = log(mfScaleFactor);
+    mvScaleFactors = mpORBextractorLeft->GetScaleFactors();
+    mvInvScaleFactors = mpORBextractorLeft->GetInverseScaleFactors();
+    mvLevelSigma2 = mpORBextractorLeft->GetScaleSigmaSquares();
+    mvInvLevelSigma2 = mpORBextractorLeft->GetInverseScaleSigmaSquares();
+
+    // ORB extraction
+    ExtractORB_MASK(0,imGray,imRoi,imMask,imDepth,isPre);
+    N = mvKeys.size();
+
+    if(mvKeys.empty())
+        return;
+
+    UndistortKeyPoints();   
+    ComputeStereoFromRGBD(imDepth);
+
+    mvpMapPoints = vector<MapPoint*>(N,static_cast<MapPoint*>(NULL));
+    mvbOutlier = vector<bool>(N,false);
+
+    // This is done only for the first Frame (or after a change in the calibration)
+    if(mbInitialComputations)
+    {
+        ComputeImageBounds(imGray);
+
+        mfGridElementWidthInv=static_cast<float>(FRAME_GRID_COLS)/static_cast<float>(mnMaxX-mnMinX);
+        mfGridElementHeightInv=static_cast<float>(FRAME_GRID_ROWS)/static_cast<float>(mnMaxY-mnMinY);
+
+        fx = K.at<float>(0,0);
+        fy = K.at<float>(1,1);
+        cx = K.at<float>(0,2);
+        cy = K.at<float>(1,2);
+        invfx = 1.0f/fx;
+        invfy = 1.0f/fy;
+
+        mbInitialComputations=false;
+    }
+
+    mb = mbf/fx;
+
+    AssignFeaturesToGrid();
+}
+
+
 Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imRoi, const cv::Mat &imMask,const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth)
     :mpORBvocabulary(voc),mpORBextractorLeft(extractor),mpORBextractorRight(static_cast<ORBextractor*>(NULL)),
      mTimeStamp(timeStamp), mK(K.clone()),mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth)
@@ -307,14 +360,23 @@ void Frame::ExtractORB(int flag, const cv::Mat &im)
 
 void Frame::ExtractORB_MASK(int flag, const cv::Mat &im,const cv::Mat &iroi,const cv::Mat &imask,const cv::Mat &iDepth) //overload with roi and mask
 {   cv::Mat temp = imask;
-    EnlargeMaskRegion(im,iDepth,iroi,temp);
+    EnlargeMaskRegion(im,iDepth,iroi,temp, true);
     if(flag==0)
         (*mpORBextractorLeft)(im,iroi,temp,cv::Mat(),mvKeys,mDescriptors);
     else
         (*mpORBextractorLeft)(im,iroi,temp,cv::Mat(),mvKeys,mDescriptors);
 }
 
-void Frame::EnlargeMaskRegion(cv::InputArray _imGray,cv::InputArray _idepth,cv::InputArray _iRoi,cv::Mat &imask) 
+void Frame::ExtractORB_MASK(int flag, const cv::Mat &im,const cv::Mat &iroi,const cv::Mat &imask,const cv::Mat &iDepth, bool &isPre) //overload with roi and mask
+{   cv::Mat temp = imask;
+    EnlargeMaskRegion(im,iDepth,iroi,temp,isPre);
+    if(flag==0)
+        (*mpORBextractorLeft)(im,iroi,temp,cv::Mat(),mvKeys,mDescriptors);
+    else
+        (*mpORBextractorLeft)(im,iroi,temp,cv::Mat(),mvKeys,mDescriptors);
+}
+
+void Frame::EnlargeMaskRegion(cv::InputArray _imGray,cv::InputArray _idepth,cv::InputArray _iRoi,cv::Mat &imask, bool &isPre) 
 {
   //  cv::Mat imask = _imask.getMat(); 
  //   cv::Mat iRoi = _iRoi.getMat(); 
@@ -376,18 +438,20 @@ void Frame::EnlargeMaskRegion(cv::InputArray _imGray,cv::InputArray _idepth,cv::
     float d_average = 0;
     int count_pixel=0;
     cv::Mat depth = _idepth.getMat();  //depth
-    for(size_t y=0;y<depth.rows;y++){
-        const float* d_row_ptr = depth.ptr<float>(y);
-        const unsigned char* mask_row_ptr = imask.ptr< unsigned char>(y);
-        for(size_t x=0;x<depth.cols;x++){
-     //       const unsigned char* row_ptr = depth.ptr<const unsigned char>(y);
-      //      const unsigned char* data_rgb_ptr = &row_ptr[ x*imdepth.channels() ];  
-     //       unsigned int data_mask = ((imask.ptr<float>( y ))[ x]); 
-            if (*mask_row_ptr++ == 255 && *d_row_ptr++!=0 ){
+    if (isPre == false){
+        for(size_t y=0;y<depth.rows;y++){
+            const float* d_row_ptr = depth.ptr<float>(y);
+            const unsigned char* mask_row_ptr = imask.ptr< unsigned char>(y);
+            for(size_t x=0;x<depth.cols;x++){
+         //       const unsigned char* row_ptr = depth.ptr<const unsigned char>(y);
+          //      const unsigned char* data_rgb_ptr = &row_ptr[ x*imdepth.channels() ];  
+         //       unsigned int data_mask = ((imask.ptr<float>( y ))[ x]); 
+                if (*mask_row_ptr++ == 255 && *d_row_ptr++!=0 ){
                      count_pixel++;  
                  //    d_average =( d_average*(count_pixel-1)+ depth.ptr<float>(y)[x] )/count_pixel;
-                     d_average =( d_average*(count_pixel-1)+  (float)*d_row_ptr++ )/count_pixel;
+                     d_average =( d_average*(count_pixel-1)+  (float)*d_row_ptr++ )/count_pixel; 
                  } 
+            }
         }
     }
     int area = 10;
@@ -395,7 +459,6 @@ void Frame::EnlargeMaskRegion(cv::InputArray _imGray,cv::InputArray _idepth,cv::
         for(size_t x=area;x<(depth.cols-area-3);x+=3){
         // check a 3*3 block around the pixel, to decide whether the pixel is at the mask margin.
             if ((imask.ptr< unsigned char>( y-1 ))[ x-1] == 255 || (imask.ptr< unsigned char>( y ))[ x-1] == 255|| (imask.ptr< unsigned char>( y+1 ))[ x-1] == 255|| (imask.ptr< unsigned char>( y-1 ))[ x] == 255|| (imask.ptr< unsigned char>( y ))[ x] == 255|| (imask.ptr< unsigned char>( y+1 ))[ x] == 255|| (imask.ptr< unsigned char>( y-1 ))[ x+1] == 255|| (imask.ptr< unsigned char>( y ))[x+1] == 255|| (imask.ptr< unsigned char>( y+1 ))[x+1] == 255){
-
                 int count_pixel2 = 0; 
                 float d_block =0;
                 for(size_t y2=0;y2<area;y2++){
@@ -404,7 +467,8 @@ void Frame::EnlargeMaskRegion(cv::InputArray _imGray,cv::InputArray _idepth,cv::
                         d_block =( d_block*(count_pixel2-1)+ depth.ptr<float>(y-1+y2)[x-1+x2] )/count_pixel2;
                     }
                 }
-                if ( fabs(d_block- d_average) < 0.1 && (depth.ptr<float>( y ))[ x] != 0 && imask.ptr< unsigned char>( y )[ x] ==0){  
+                if ( fabs(d_block- d_average) < 0.5 && (depth.ptr<float>( y ))[ x] != 0 && imask.ptr< unsigned char>( y )[ x] ==0){  
+ // 0.5 is artificially set, since this way supposed the object is flat, and the dimention of object is not very large(at least less than 1m)
                     for(size_t y2=0;y2<area;y2++){
                         for(size_t x2=0;x2<area;x2++){
 	                    imask.ptr< unsigned char>(y-1+y2)[x-1+x2] =255;   //255 correspond to the mask area 
@@ -412,7 +476,7 @@ void Frame::EnlargeMaskRegion(cv::InputArray _imGray,cv::InputArray _idepth,cv::
                     }
                 }
 
-  //be cautious to shrink the section, since if no mask was detected that would result disastrous result.
+  //be careful to shrink the section, since if no mask was detected that would result disastrous result.
 /*              if ( fabs(d_block- d_average) > 0.5 && (depth.ptr<float>( y ))[ x] != 0 && imask.ptr< unsigned char>( y )[ x] ==255){  
                     for(size_t y2=0;y2<area;y2++){
                         for(size_t x2=0;x2<area;x2++){

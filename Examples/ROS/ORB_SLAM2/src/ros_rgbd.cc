@@ -70,6 +70,7 @@ public:
     float q[4];
     geometry_msgs::PoseStamped msg;
     geometry_msgs::TransformStamped tf1;
+    bool isPre == false; //flag to judge whether the current mask frame is genereated by mask_rcnn.
 };
 
 int main(int argc, char **argv)
@@ -152,8 +153,9 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
   //  depth_object = imDepth.ptr<float>(100)[100];
     if(mRoi==NULL){
        mpSLAM->TrackRGBD(cv_ptrRGB->image,cv_ptrD->image,cv_ptrRGB->header.stamp.toSec()); //original
+       std::cout << " No mask was received "<<endl;
     }else{
-       mpSLAM->TrackRGBD(cv_ptrRGB->image,cv_ptrD->image,mRoi->image,mMask->image,cv_ptrRGB->header.stamp.toSec());
+       mpSLAM->TrackRGBD(cv_ptrRGB->image,cv_ptrD->image,mRoi->image,mMask->image,cv_ptrRGB->header.stamp.toSec(),isPre);
     }
     if(mpSLAM->GetFramePose(Twc, q)){
 
@@ -169,6 +171,7 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
         tf1.transform.rotation.w = q[3];
         slamTf.publish(tf1);
     }
+    isPre == true;
 }
 
 //mask
@@ -223,7 +226,7 @@ void ImageGrabber::GrabRGBD2(const sensor_msgs::ImageConstPtr& msgRoi,const sens
 
     mRoi = cv_ptrRoi; 
     mMask = cv_ptrMask;
-    
+    isPre == false;
 /*
     if (msgRoi != NULL) {
 
