@@ -112,10 +112,10 @@ Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeSt
 
         mbInitialComputations=false;
     }
-
     mb = mbf/fx;
 
     AssignFeaturesToGrid();
+    mAverageDep = 0;
 }
 
 Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth)
@@ -170,6 +170,7 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeSt
     mb = mbf/fx;
 
     AssignFeaturesToGrid();
+    mAverageDep = 0;
 }
 //RGB-D WITH MASK
 Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imRoi, const cv::Mat &imMask,const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth, bool &isPre)
@@ -222,6 +223,7 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imRoi
     mb = mbf/fx;
 
     AssignFeaturesToGrid();
+    mAverageDep = 0;
 }
 
 
@@ -275,6 +277,7 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imRoi
     mb = mbf/fx;
 
     AssignFeaturesToGrid();
+    mAverageDep = 0;
 }
 
 Frame::Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth)
@@ -331,6 +334,7 @@ Frame::Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extra
     mb = mbf/fx;
 
     AssignFeaturesToGrid();
+    mAverageDep = 0;
 }
 
 void Frame::AssignFeaturesToGrid()
@@ -360,7 +364,7 @@ void Frame::ExtractORB(int flag, const cv::Mat &im)
 
 void Frame::ExtractORB_MASK(int flag, const cv::Mat &im,const cv::Mat &iroi,const cv::Mat &imask,const cv::Mat &iDepth) //overload with roi and mask
 {   cv::Mat temp = imask;
-    EnlargeMaskRegion(im,iDepth,iroi,temp, true);
+    EnlargeMaskRegion(im,iDepth,iroi,temp,true);
     if(flag==0)
         (*mpORBextractorLeft)(im,iroi,temp,cv::Mat(),mvKeys,mDescriptors);
     else
@@ -369,20 +373,22 @@ void Frame::ExtractORB_MASK(int flag, const cv::Mat &im,const cv::Mat &iroi,cons
 
 void Frame::ExtractORB_MASK(int flag, const cv::Mat &im,const cv::Mat &iroi,const cv::Mat &imask,const cv::Mat &iDepth, bool &isPre) //overload with roi and mask
 {   cv::Mat temp = imask;
-    EnlargeMaskRegion(im,iDepth,iroi,temp,isPre);
+    EnlargeMaskRegion(im,iDepth,iroi,temp,&isPre);
     if(flag==0)
         (*mpORBextractorLeft)(im,iroi,temp,cv::Mat(),mvKeys,mDescriptors);
     else
         (*mpORBextractorLeft)(im,iroi,temp,cv::Mat(),mvKeys,mDescriptors);
 }
 
-void Frame::EnlargeMaskRegion(cv::InputArray _imGray,cv::InputArray _idepth,cv::InputArray _iRoi,cv::Mat &imask, bool &isPre) 
+void Frame::EnlargeMaskRegion(cv::InputArray _imGray,cv::InputArray _idepth,cv::InputArray _iRoi,cv::Mat &imask, bool isPre) 
 {
+/*
   //  cv::Mat imask = _imask.getMat(); 
  //   cv::Mat iRoi = _iRoi.getMat(); 
  //   cv::Mat bgdModel,fgdModel; 
   //  cv::Mat result;
-/*
+    
+    cvtColor(iRoi,iRoi,CV_RGB2GRAY)   
     int rect_x,rect_y,rect_x1,rect_y1,rect_x2,rect_y2,rect_x3,rect_y3;
     for(size_t y=0;y<iRoi.rows;y++){
         for(size_t x=0;x<iRoi.cols;x++){
@@ -448,11 +454,11 @@ void Frame::EnlargeMaskRegion(cv::InputArray _imGray,cv::InputArray _idepth,cv::
          //       unsigned int data_mask = ((imask.ptr<float>( y ))[ x]); 
                 if (*mask_row_ptr++ == 255 && *d_row_ptr++!=0 ){
                      count_pixel++;  
-                 //    d_average =( d_average*(count_pixel-1)+ depth.ptr<float>(y)[x] )/count_pixel;
                      d_average =( d_average*(count_pixel-1)+  (float)*d_row_ptr++ )/count_pixel; 
                  } 
             }
         }
+    mAverageDep = d_average;
     }
     int area = 10;
     for(size_t y=area;y<(depth.rows-area-3);y+=3){
@@ -467,7 +473,7 @@ void Frame::EnlargeMaskRegion(cv::InputArray _imGray,cv::InputArray _idepth,cv::
                         d_block =( d_block*(count_pixel2-1)+ depth.ptr<float>(y-1+y2)[x-1+x2] )/count_pixel2;
                     }
                 }
-                if ( fabs(d_block- d_average) < 0.5 && (depth.ptr<float>( y ))[ x] != 0 && imask.ptr< unsigned char>( y )[ x] ==0){  
+                if ( fabs(d_block- mAverageDep) < 0.5 && (depth.ptr<float>( y ))[ x] != 0 && imask.ptr< unsigned char>( y )[ x] ==0){  
  // 0.5 is artificially set, since this way supposed the object is flat, and the dimention of object is not very large(at least less than 1m)
                     for(size_t y2=0;y2<area;y2++){
                         for(size_t x2=0;x2<area;x2++){
@@ -477,7 +483,7 @@ void Frame::EnlargeMaskRegion(cv::InputArray _imGray,cv::InputArray _idepth,cv::
                 }
 
   //be careful to shrink the section, since if no mask was detected that would result disastrous result.
-/*              if ( fabs(d_block- d_average) > 0.5 && (depth.ptr<float>( y ))[ x] != 0 && imask.ptr< unsigned char>( y )[ x] ==255){  
+/*              if ( fabs(d_block- mAverageDep) > 0.5 && (depth.ptr<float>( y ))[ x] != 0 && imask.ptr< unsigned char>( y )[ x] ==255){  
                     for(size_t y2=0;y2<area;y2++){
                         for(size_t x2=0;x2<area;x2++){
 	                    imask.ptr< unsigned char>(y-1+y2)[x-1+x2] =0;  

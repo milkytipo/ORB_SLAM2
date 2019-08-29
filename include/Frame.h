@@ -66,7 +66,7 @@ public:
     void ExtractORB_MASK(int flag, const cv::Mat &im,const cv::Mat &iroi,const cv::Mat &imask,const cv::Mat &iDepth);
     void ExtractORB_MASK(int flag, const cv::Mat &im,const cv::Mat &iroi,const cv::Mat &imask,const cv::Mat &iDepth, bool &isPre);
     //Enlarge the mask region using the depth discoutiniuty.
-    void EnlargeMaskRegion(cv::InputArray _imGray,cv::InputArray _idepth,cv::InputArray _iRoi,cv::Mat &imask,bool &isPre);
+    void EnlargeMaskRegion(cv::InputArray _imGray,cv::InputArray _idepth,cv::InputArray _iRoi,cv::Mat &imask,bool isPre);
  //   cv::Mat EnlargeMaskRegion(cv::InputArray _imGray,cv::InputArray _idepth,cv::InputArray _iRoi,cv::InputArray _imask, cv::Mat &region)const;
 
 
@@ -117,6 +117,9 @@ public:
 
     // Frame timestamp.
     double mTimeStamp;
+
+    // average depth of an image
+    double mAverageDep;
 
     // Calibration matrix and OpenCV distortion parameters.
     cv::Mat mK;
