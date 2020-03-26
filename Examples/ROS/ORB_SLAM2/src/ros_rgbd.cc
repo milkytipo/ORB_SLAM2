@@ -70,7 +70,7 @@ public:
     float q[4];
     geometry_msgs::PoseStamped msg;
     geometry_msgs::TransformStamped tf1;
-    bool isPre == false; //flag to judge whether the current mask frame is genereated by mask_rcnn.
+    bool isPre = false; //flag to judge whether the current mask frame is genereated by mask_rcnn.
 };
 
 int main(int argc, char **argv)

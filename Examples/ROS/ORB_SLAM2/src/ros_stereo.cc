@@ -184,18 +184,33 @@ void ImageGrabber::GrabStereo(const sensor_msgs::ImageConstPtr& msgLeft,const se
         mpSLAM->TrackStereo(cv_ptrLeft->image,cv_ptrRight->image,cv_ptrLeft->header.stamp.toSec());
     }
     if(mpSLAM->GetFramePose(Twc, q)){
-
+/*********************For MSF************************/
         tf1.header.stamp = msgLeft->header.stamp;
         tf1.header.frame_id = "world" ;
         tf1.child_frame_id = "slam" ;
-        tf1.transform.translation.x = Twc.at<float>(2);//Twc.at<float>(0);
-        tf1.transform.translation.y = -Twc.at<float>(0);//Twc.at<float>(1);
-        tf1.transform.translation.z = -Twc.at<float>(1);//Twc.at<float>(2);
-        tf1.transform.rotation.x = q[2];//q[0];
-        tf1.transform.rotation.y = -q[0];//q[1];
-        tf1.transform.rotation.z = -q[1];//q[2];
+        tf1.transform.translation.x = Twc.at<float>(0);//Twc.at<float>(1); //
+        tf1.transform.translation.y = Twc.at<float>(1);//-Twc.at<float>(2);//
+        tf1.transform.translation.z = Twc.at<float>(2);//Twc.at<float>(0);// 
+        tf1.transform.rotation.x = q[0];
+        tf1.transform.rotation.y =q[1];
+        tf1.transform.rotation.z =q[2];
         tf1.transform.rotation.w = q[3];
         slamTf.publish(tf1);
+
+/* ********************For General Trajectory Show*********************/
+/*
+        tf1.header.stamp = msgLeft->header.stamp;
+        tf1.header.frame_id = "world" ;
+        tf1.child_frame_id = "slam" ;
+        tf1.transform.translation.x =Twc.at<float>(2);//
+        tf1.transform.translation.y =-Twc.at<float>(0);//
+        tf1.transform.translation.z =-Twc.at<float>(1);//
+        tf1.transform.rotation.x =q[2];//
+        tf1.transform.rotation.y =-q[0];//
+        tf1.transform.rotation.z =-q[1];//
+        tf1.transform.rotation.w = q[3];
+        slamTf.publish(tf1);
+*/
     }
 }
 
